@@ -45,6 +45,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tv_bot_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Trợ lý AI Thunder Book"
@@ -53,6 +54,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tv_bot_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Trực tuyến • Sẵn sàng tư vấn"

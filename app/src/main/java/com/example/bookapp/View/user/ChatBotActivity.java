@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -38,6 +39,8 @@ public class ChatBotActivity extends AppCompatActivity {
     private ChatAdapter chatAdapter;
     private final List<ChatMessage> messageList = new ArrayList<>();
 
+    private TextView tvBotTitle, tvBotSubtitle;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,15 +50,26 @@ public class ChatBotActivity extends AppCompatActivity {
         setupRecyclerView();
         setupViewModel();
         setupListeners();
-        setupQuickPrompts();
 
         String targetBookId = getIntent().getStringExtra(EXTRA_BOOK_ID);
         if (targetBookId != null && !targetBookId.trim().isEmpty()) {
+            setupBookQuickPrompts();
             new com.example.bookapp.Repository.BookRepository().getBook(targetBookId).observe(this, book -> {
                 if (book != null) {
+                    if (tvBotTitle != null) {
+                        tvBotTitle.setText("Tư vấn: " + book.getTitle());
+                    }
+                    if (tvBotSubtitle != null) {
+                        tvBotSubtitle.setText("Trợ lý AI chuyên sâu về sách");
+                    }
+                    if (etMessageInput != null) {
+                        etMessageInput.setHint("Hỏi AI về cuốn sách này...");
+                    }
                     chatViewModel.setTargetBook(book, "", "");
                 }
             });
+        } else {
+            setupQuickPrompts();
         }
     }
 
@@ -65,6 +79,8 @@ public class ChatBotActivity extends AppCompatActivity {
         ibSendMessage = findViewById(R.id.ib_send_message);
         ibBack = findViewById(R.id.ib_back);
         ibClearChat = findViewById(R.id.ib_clear_chat);
+        tvBotTitle = findViewById(R.id.tv_bot_title);
+        tvBotSubtitle = findViewById(R.id.tv_bot_subtitle);
     }
 
     private void setupRecyclerView() {
@@ -160,6 +176,35 @@ public class ChatBotActivity extends AppCompatActivity {
         findViewById(R.id.chip_prompt_cheap).setOnClickListener(v -> sendQuickPrompt("Có sách nào hay giá dưới 100k đang có sẵn trong kho không?"));
         findViewById(R.id.chip_prompt_bestseller).setOnClickListener(v -> sendQuickPrompt("Những cuốn sách nào đang được độc giả mua nhiều và đánh giá cao nhất?"));
         findViewById(R.id.chip_prompt_business).setOnClickListener(v -> sendQuickPrompt("Tư vấn cho tôi sách về khởi nghiệp, tư duy kinh doanh và làm giàu"));
+    }
+
+    private void setupBookQuickPrompts() {
+        TextView chip1 = findViewById(R.id.chip_prompt_heal);
+        TextView chip2 = findViewById(R.id.chip_prompt_habits);
+        TextView chip3 = findViewById(R.id.chip_prompt_cheap);
+        TextView chip4 = findViewById(R.id.chip_prompt_bestseller);
+        TextView chip5 = findViewById(R.id.chip_prompt_business);
+
+        if (chip1 != null) {
+            chip1.setText("💡 Tóm tắt nội dung");
+            chip1.setOnClickListener(v -> sendQuickPrompt("Hãy tóm tắt ngắn gọn và cuốn hút nội dung chính của cuốn sách này."));
+        }
+        if (chip2 != null) {
+            chip2.setText("🎯 Phù hợp với ai?");
+            chip2.setOnClickListener(v -> sendQuickPrompt("Cuốn sách này phù hợp với đối tượng độc giả nào và ai nên đọc?"));
+        }
+        if (chip3 != null) {
+            chip3.setText("⭐ Bài học đắt giá");
+            chip3.setOnClickListener(v -> sendQuickPrompt("Những bài học hoặc giá trị đắt giá nhất mà cuốn sách này mang lại là gì?"));
+        }
+        if (chip4 != null) {
+            chip4.setText("💬 Độc giả đánh giá thế nào?");
+            chip4.setOnClickListener(v -> sendQuickPrompt("Độc giả đánh giá thế nào về cuốn sách này? Điểm cộng và điểm trừ là gì?"));
+        }
+        if (chip5 != null) {
+            chip5.setText("💰 Có đáng mua không?");
+            chip5.setOnClickListener(v -> sendQuickPrompt("Theo bạn cuốn sách này có đáng mua không, lý do tại sao?"));
+        }
     }
 
     private void sendQuickPrompt(String prompt) {
