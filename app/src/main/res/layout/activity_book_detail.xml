@@ -53,6 +53,7 @@
         </com.google.android.material.appbar.AppBarLayout>
 
         <androidx.core.widget.NestedScrollView
+            android:id="@+id/nsv_content"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
@@ -293,6 +294,183 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
+                <!-- AI Advisor Card -->
+                <LinearLayout
+                    android:id="@+id/card_ai_advisor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:background="@color/surface"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <!-- Header of AI Advisor -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:src="@drawable/ic_robot"
+                            app:tint="@color/primary" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Trợ lý AI tư vấn sách ⚡"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Hỏi đáp, tóm tắt &amp; tư vấn chuyên sâu về sách"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <!-- Button clear chat -->
+                        <ImageButton
+                            android:id="@+id/ib_clear_book_chat"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Làm mới cuộc trò chuyện"
+                            android:src="@drawable/ic_delete"
+                            app:tint="@color/text_hint" />
+
+                        <!-- Button full screen chat -->
+                        <ImageButton
+                            android:id="@+id/ib_expand_book_chat"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:layout_marginStart="4dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Mở rộng toàn màn hình"
+                            android:src="@drawable/ic_chevron_right"
+                            app:tint="@color/primary" />
+                    </LinearLayout>
+
+                    <!-- Quick Prompts Horizontal Scroll -->
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/chip_prompt_summary"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_quick_chip"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="6dp"
+                                android:text="💡 Tóm tắt nội dung"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/chip_prompt_audience"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_quick_chip"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="6dp"
+                                android:text="🎯 Phù hợp với ai?"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/chip_prompt_key_points"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_quick_chip"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="6dp"
+                                android:text="⭐ Bài học đắt giá"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/chip_prompt_should_buy"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_quick_chip"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="6dp"
+                                android:text="💬 Có nên mua không?"
+                                android:textColor="@color/text_primary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </HorizontalScrollView>
+
+                    <!-- Chat Messages RecyclerView inside Card -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_book_chat_messages"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:nestedScrollingEnabled="false"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                    <!-- Chat Input Box -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_chat_input_bar"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="14dp"
+                        android:paddingVertical="4dp">
+
+                        <EditText
+                            android:id="@+id/et_book_chat_input"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@android:color/transparent"
+                            android:hint="Hỏi AI về cuốn sách này..."
+                            android:imeOptions="actionSend"
+                            android:inputType="textCapSentences|textMultiLine"
+                            android:maxLines="3"
+                            android:paddingVertical="8dp"
+                            android:textColor="@color/text_primary"
+                            android:textColorHint="@color/text_hint"
+                            android:textSize="13sp" />
+
+                        <ImageButton
+                            android:id="@+id/ib_send_book_message"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/bg_button_primary"
+                            android:contentDescription="Gửi câu hỏi"
+                            android:src="@drawable/ic_send"
+                            app:tint="@color/white" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
                 <!-- Reviews -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -377,6 +555,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageButton
+            android:id="@+id/ib_consult_ai"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/bg_button_outline"
+            android:contentDescription="Tư vấn AI về sách"
+            android:src="@drawable/ic_robot"
+            app:tint="@color/primary" />
 
         <ImageButton
             android:id="@+id/ib_add_to_cart_icon"

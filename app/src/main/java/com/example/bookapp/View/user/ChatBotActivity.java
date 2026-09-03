@@ -28,6 +28,8 @@ import java.util.List;
  */
 public class ChatBotActivity extends AppCompatActivity {
 
+    public static final String EXTRA_BOOK_ID = "extra_book_id";
+
     private RecyclerView rvChatMessages;
     private EditText etMessageInput;
     private ImageButton ibSendMessage, ibBack, ibClearChat;
@@ -46,6 +48,15 @@ public class ChatBotActivity extends AppCompatActivity {
         setupViewModel();
         setupListeners();
         setupQuickPrompts();
+
+        String targetBookId = getIntent().getStringExtra(EXTRA_BOOK_ID);
+        if (targetBookId != null && !targetBookId.trim().isEmpty()) {
+            new com.example.bookapp.Repository.BookRepository().getBook(targetBookId).observe(this, book -> {
+                if (book != null) {
+                    chatViewModel.setTargetBook(book, "", "");
+                }
+            });
+        }
     }
 
     private void bindViews() {

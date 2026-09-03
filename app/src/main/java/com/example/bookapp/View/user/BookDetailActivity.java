@@ -4,7 +4,9 @@ import android.content.Intent;
 import android.graphics.Paint;
 import android.os.Bundle;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -15,6 +17,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.widget.NestedScrollView;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -22,13 +25,17 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.bookapp.Adapter.user.BookAdapter;
 import com.example.bookapp.Adapter.user.BookReviewAdapter;
+import com.example.bookapp.Adapter.user.ChatAdapter;
 import com.example.bookapp.Model.Book;
+import com.example.bookapp.Model.ChatMessage;
 import com.example.bookapp.R;
 import com.example.bookapp.Utils.FirebaseUtils;
 import com.example.bookapp.ViewModel.BookDetailViewModel;
+import com.example.bookapp.ViewModel.ChatViewModel;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class BookDetailActivity extends AppCompatActivity {
@@ -36,6 +43,7 @@ public class BookDetailActivity extends AppCompatActivity {
     public static final String EXTRA_BOOK_ID = "extra_book_id";
 
     private CoordinatorLayout clMainContent;
+    private NestedScrollView nsvContent;
     private ProgressBar progressBar;
     
     private ImageView ivCover;
@@ -43,8 +51,15 @@ public class BookDetailActivity extends AppCompatActivity {
             tvSalePrice, tvOriginalPrice, tvDiscountPercent, tvStockStatus,
             tvDescription, tvExpandDescription, tvSeeAllReviews, tvReviewSectionTitle, tvQuantity;
     private RecyclerView rvRelatedBooks, rvReviewsPreview;
-    private ImageButton ibDecreaseQty, ibIncreaseQty, ibAddToCartIcon;
+    private ImageButton ibDecreaseQty, ibIncreaseQty, ibAddToCartIcon, ibConsultAi;
     private Button btnBuyNow;
+
+    // AI Advisor Views
+    private View cardAiAdvisor;
+    private RecyclerView rvBookChatMessages;
+    private EditText etBookChatInput;
+    private ImageButton ibSendBookMessage, ibClearBookChat, ibExpandBookChat;
+    private TextView chipPromptSummary, chipPromptAudience, chipPromptKeyPoints, chipPromptShouldBuy;
 
     private String bookId;
     private Book currentBook;
@@ -52,9 +67,12 @@ public class BookDetailActivity extends AppCompatActivity {
     private boolean isBuyNowMode = false;
 
     private BookDetailViewModel viewModel;
+    private ChatViewModel chatViewModel;
     
     private BookAdapter relatedBookAdapter;
     private BookReviewAdapter reviewAdapter;
+    private ChatAdapter bookChatAdapter;
+    private final List<ChatMessage> bookMessageList = new ArrayList<>();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,11 +88,27 @@ public class BookDetailActivity extends AppCompatActivity {
         setupClicks();
 
         viewModel = new ViewModelProvider(this).get(BookDetailViewModel.class);
+        chatViewModel = new ViewModelProvider(this).get(ChatViewModel.class);
+
+        chatViewModel.getMessages().observe(this, messages -> {
+            if (messages != null) {
+                bookMessageList.clear();
+                bookMessageList.addAll(messages);
+                bookChatAdapter.notifyDataSetChanged();
+            }
+        });
+
+        chatViewModel.getErrorMessage().observe(this, error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
+            }
+        });
 
         viewModel.getBook().observe(this, book -> {
             if (book != null) {
                 currentBook = book;
                 bindBookData(book);
+                updateChatTargetBook();
                 String categoryId = (book.getCategoryIds() != null && !book.getCategoryIds().isEmpty()) 
                         ? book.getCategoryIds().get(0) : null;
                 viewModel.loadRelatedBooks(bookId, categoryId);
@@ -84,9 +118,15 @@ public class BookDetailActivity extends AppCompatActivity {
             }
         });
 
-        viewModel.getAuthorsText().observe(this, text -> tvAuthor.setText(text));
+        viewModel.getAuthorsText().observe(this, text -> {
+            tvAuthor.setText(text);
+            updateChatTargetBook();
+        });
         
-        viewModel.getCategoriesText().observe(this, text -> tvCategoryTag.setText(text));
+        viewModel.getCategoriesText().observe(this, text -> {
+            tvCategoryTag.setText(text);
+            updateChatTargetBook();
+        });
         
         viewModel.getReviews().observe(this, reviews -> {
             if (reviews != null && !reviews.isEmpty()) {
@@ -148,6 +188,7 @@ public class BookDetailActivity extends AppCompatActivity {
 
     private void bindViews() {
         clMainContent = findViewById(R.id.cl_main_content);
+        nsvContent = findViewById(R.id.nsv_content);
         progressBar = findViewById(R.id.progress_bar);
         
         ivCover = findViewById(R.id.iv_cover);
@@ -171,7 +212,20 @@ public class BookDetailActivity extends AppCompatActivity {
         ibDecreaseQty = findViewById(R.id.ib_decrease_qty);
         ibIncreaseQty = findViewById(R.id.ib_increase_qty);
         ibAddToCartIcon = findViewById(R.id.ib_add_to_cart_icon);
+        ibConsultAi = findViewById(R.id.ib_consult_ai);
         btnBuyNow = findViewById(R.id.btn_buy_now);
+
+        // AI Advisor Views
+        cardAiAdvisor = findViewById(R.id.card_ai_advisor);
+        rvBookChatMessages = findViewById(R.id.rv_book_chat_messages);
+        etBookChatInput = findViewById(R.id.et_book_chat_input);
+        ibSendBookMessage = findViewById(R.id.ib_send_book_message);
+        ibClearBookChat = findViewById(R.id.ib_clear_book_chat);
+        ibExpandBookChat = findViewById(R.id.ib_expand_book_chat);
+        chipPromptSummary = findViewById(R.id.chip_prompt_summary);
+        chipPromptAudience = findViewById(R.id.chip_prompt_audience);
+        chipPromptKeyPoints = findViewById(R.id.chip_prompt_key_points);
+        chipPromptShouldBuy = findViewById(R.id.chip_prompt_should_buy);
 
         rvRelatedBooks.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         relatedBookAdapter = new BookAdapter(new ArrayList<>(), book -> {});
@@ -180,6 +234,17 @@ public class BookDetailActivity extends AppCompatActivity {
         rvReviewsPreview.setLayoutManager(new LinearLayoutManager(this));
         reviewAdapter = new BookReviewAdapter(this, new ArrayList<>());
         rvReviewsPreview.setAdapter(reviewAdapter);
+
+        // Setup ChatAdapter cho khung Chatbot tư vấn sách
+        rvBookChatMessages.setLayoutManager(new LinearLayoutManager(this));
+        bookChatAdapter = new ChatAdapter(this, bookMessageList, book -> {
+            if (book != null && book.getBookId() != null && !book.getBookId().equals(bookId)) {
+                Intent intent = new Intent(this, BookDetailActivity.class);
+                intent.putExtra(EXTRA_BOOK_ID, book.getBookId());
+                startActivity(intent);
+            }
+        });
+        rvBookChatMessages.setAdapter(bookChatAdapter);
     }
 
     private void setupClicks() {
@@ -217,6 +282,82 @@ public class BookDetailActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        // AI Advisor Clicks
+        if (ibConsultAi != null) {
+            ibConsultAi.setOnClickListener(v -> {
+                if (nsvContent != null && cardAiAdvisor != null) {
+                    nsvContent.smoothScrollTo(0, cardAiAdvisor.getTop());
+                    if (etBookChatInput != null) {
+                        etBookChatInput.requestFocus();
+                    }
+                }
+            });
+        }
+
+        if (ibSendBookMessage != null) {
+            ibSendBookMessage.setOnClickListener(v -> sendBookChatMessage());
+        }
+
+        if (etBookChatInput != null) {
+            etBookChatInput.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == EditorInfo.IME_ACTION_SEND) {
+                    sendBookChatMessage();
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        if (ibClearBookChat != null) {
+            ibClearBookChat.setOnClickListener(v -> {
+                chatViewModel.clearHistory();
+                Toast.makeText(this, "Đã làm mới cuộc tư vấn", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        if (ibExpandBookChat != null) {
+            ibExpandBookChat.setOnClickListener(v -> {
+                Intent intent = new Intent(this, ChatBotActivity.class);
+                intent.putExtra(ChatBotActivity.EXTRA_BOOK_ID, bookId);
+                startActivity(intent);
+            });
+        }
+
+        if (chipPromptSummary != null) {
+            chipPromptSummary.setOnClickListener(v -> sendQuickPrompt("Hãy tóm tắt ngắn gọn và cuốn hút nội dung chính của cuốn sách này."));
+        }
+        if (chipPromptAudience != null) {
+            chipPromptAudience.setOnClickListener(v -> sendQuickPrompt("Cuốn sách này phù hợp nhất với những ai và đối tượng độc giả nào nên đọc?"));
+        }
+        if (chipPromptKeyPoints != null) {
+            chipPromptKeyPoints.setOnClickListener(v -> sendQuickPrompt("Những bài học hoặc giá trị đắt giá nhất mà cuốn sách này mang lại là gì?"));
+        }
+        if (chipPromptShouldBuy != null) {
+            chipPromptShouldBuy.setOnClickListener(v -> sendQuickPrompt("Theo bạn cuốn sách này có đáng mua không, độc giả đánh giá ra sao?"));
+        }
+    }
+
+    private void updateChatTargetBook() {
+        if (currentBook != null && chatViewModel != null) {
+            String authors = tvAuthor != null ? tvAuthor.getText().toString() : "";
+            String categories = tvCategoryTag != null ? tvCategoryTag.getText().toString() : "";
+            chatViewModel.setTargetBook(currentBook, authors, categories);
+        }
+    }
+
+    private void sendBookChatMessage() {
+        if (etBookChatInput == null) return;
+        String text = etBookChatInput.getText().toString().trim();
+        if (!text.isEmpty()) {
+            chatViewModel.sendMessage(text);
+            etBookChatInput.setText("");
+        }
+    }
+
+    private void sendQuickPrompt(String prompt) {
+        if (chatViewModel != null) {
+            chatViewModel.sendMessage(prompt);
+        }
     }
 
     private void bindBookData(Book book) {
