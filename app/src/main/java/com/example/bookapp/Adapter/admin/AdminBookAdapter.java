@@ -61,10 +61,7 @@ public class AdminBookAdapter extends RecyclerView.Adapter<AdminBookAdapter.Book
 
         boolean onSale = PriceFormatter.isOnSale(book.getPrice(), book.getSalePrice());
         holder.tvPrice.setText(PriceFormatter.formatVND(onSale ? book.getSalePrice() : book.getPrice()));
-        if (onSale) {
-            holder.tvPriceOld.setVisibility(View.VISIBLE);
-            holder.tvPriceOld.setText(PriceFormatter.formatVND(book.getPrice()));
-            holder.tvPriceOld.setPaintFlags(holder.tvPriceOld.getPaintFlags()
+       holder.tvPriceOld.setPaintFlags(holder.tvPriceOld.getPaintFlags()
                     | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
         } else {
             holder.tvPriceOld.setVisibility(View.GONE);
@@ -80,8 +77,11 @@ public class AdminBookAdapter extends RecyclerView.Adapter<AdminBookAdapter.Book
         holder.swActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (listener != null) listener.onToggleActive(book, isChecked);
         });
+        if (onSale) {
+            holder.tvPriceOld.setVisibility(View.VISIBLE);
+            holder.tvPriceOld.setText(PriceFormatter.formatVND(book.getPrice()));
 
-        holder.itemView.setOnClickListener(v -> {
+            holder.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onItemClick(book);
         });
         holder.ivMenu.setOnClickListener(v -> {
