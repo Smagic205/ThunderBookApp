@@ -91,6 +91,13 @@ public class ChatRepository {
      * Gửi tin nhắn đến Google Gemini AI trực tiếp từ Android.
      */
     public void sendMessage(String userId, String sessionId, String userMessage, ChatCallback callback) {
+        sendMessage(userId, sessionId, userMessage, null, null, null, callback);
+    }
+
+    /**
+     * Gửi tin nhắn đến Google Gemini AI kèm ngữ cảnh cuốn sách đang xem.
+     */
+    public void sendMessage(String userId, String sessionId, String userMessage, Book currentBook, String authorsText, String categoriesText, ChatCallback callback) {
         executorService.execute(() -> {
             try {
                 // 1. Giới hạn độ dài lịch sử hội thoại để tránh tràn bộ nhớ/payload quá tải
@@ -113,12 +120,16 @@ public class ChatRepository {
                 List<Book> allSuggestedBooks = new ArrayList<>();
                 Set<String> addedBookIds = new HashSet<>();
 
+                String activeSystemInstruction = currentBook != null
+                        ? buildBookSystemInstruction(currentBook, authorsText, categoriesText)
+                        : SYSTEM_INSTRUCTION;
+
                 // 3. Vòng lặp Agent Multi-Turn Tool Calling
                 int turnCount = 0;
                 while (turnCount < MAX_TURNS) {
                     turnCount++;
 
-                    JSONObject payload = buildGeminiPayload();
+                    JSONObject payload = buildGeminiPayload(activeSystemInstruction);
                     JSONObject geminiResponse = callGeminiApi(payload);
 
                     if (geminiResponse == null) {
@@ -369,7 +380,157 @@ public class ChatRepository {
         conversationHistory.clear();
     }
 
-    private JSONObject buildGeminiPayload() throws Exception {
+    /**
+     * Xây dựng System Instruction chuyên sâu cho cuốn sách đang xem.
+     */
+    private String buildBookSystemInstruction(Book book, String authors, String categories) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Bạn là Trợ lý AI Tư vấn Chuyên sâu của nhà sách Thunder Book ⚡📚.\n");
+        sb.append("Hiện tại, độc giả đang xem trang chi tiết và cần tư vấn về cuốn sách sau:\n");
+        sb.append("- Tên sách: ").append(book.getTitle()).append("\n");
+        if (authors != null && !authors.isEmpty()) {
+            sb.append("- ").append(authors).append("\n");
+        }
+        if (categories != null && !categories.isEmpty()) {
+            sb.append("- Thể loại: ").append(categories).append("\n");
+        }
+        double effectivePrice = book.isOnSale() ? book.getSalePrice() : book.getPrice();
+        sb.append("- Giá bán: ").append(String.format(java.util.Locale.getDefault(), "%,.0fđ", effectivePrice));
+        if (book.isOnSale()) {
+            sb.append(" (Giá gốc: ").append(String.format(java.util.Locale.getDefault(), "%,.0fđ", book.getPrice())).append(")");
+        }
+        sb.append("\n");
+        sb.append("- Đánh giá: ").append(book.getRating()).append(" sao (").append(book.getRatingCount()).append(" lượt đánh giá)\n");
+        sb.append("- Tình trạng tồn kho: ").append(book.getStock() > 0 ? "Còn hàng (" + book.getStock() + " cuốn)" : "Tạm hết hàng").append("\n");
+        if (book.getDescription() != null && !book.getDescription().isEmpty()) {
+            sb.append("- Giới thiệu tóm tắt từ nhà sách: ").append(book.getDescription()).append("\n");
+        }
+        sb.append("\nQUY TẮC VÀ NHIỆM VỤ:\n");
+        sb.append("1. Trả lời chi tiết, sâu sắc, hấp dẫn và khách quan về nội dung, bài học đắt giá, điểm nổi bật hoặc đối tượng độc giả phù hợp của cuốn sách này.\n");
+        sb.append("2. Sử dụng kiến thức phong phú kết hợp với thông tin sách ở trên để giải đáp thắc mắc, giúp độc giả có quyết định mua hoặc đọc sách đúng đắn nhất.\n");
+        sb.append("3. Giọng điệu nhiệt tình, thân thiện, truyền cảm hứng đọc sách, sử dụng tiếng Việt tự nhiên và định dạng markdown rõ ràng (in đậm, danh sách gạch đầu dòng).\n");
+        sb.append("4. Nếu độc giả hỏi tìm thêm các cuốn sách tương tự, cùng chủ đề, hoặc so sánh với sách khác, hãy sử dụng công cụ `search_books` để tìm kiếm trong kho sách của Thunder Book.");
+        return sb.toString();
+    }
+
+    /**
+     * Nạp lịch sử hội thoại của riêng cuốn sách này từ Firestore.
+     */
+    public void loadBookChatHistory(String userId, String bookId, HistoryCallback callback) {
+        if (userId == null || userId.trim().isEmpty() || bookId == null || bookId.trim().isEmpty()) {
+            mainHandler.post(() -> callback.onLoaded(new ArrayList<>()));
+            return;
+        }
+
+        executorService.execute(() -> {
+            try {
+                QuerySnapshot snapshot = Tasks.await(
+                        FirebaseUtils.getFirestore()
+                                .collection(Constants.COLLECTION_USERS)
+                                .document(userId)
+                                .collection("book_chats")
+                                .document(bookId)
+                                .collection("messages")
+                                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.ASCENDING)
+                                .limit(50)
+                                .get(),
+                        10, TimeUnit.SECONDS
+                );
+
+                List<ChatMessage> list = new ArrayList<>();
+                conversationHistory.clear();
+
+                for (QueryDocumentSnapshot doc : snapshot) {
+                    ChatMessage msg = doc.toObject(ChatMessage.class);
+                    if (msg != null) {
+                        msg.setMessageId(doc.getId());
+                        list.add(msg);
+
+                        if (msg.getText() != null && !msg.getText().isEmpty()) {
+                            JSONObject turn = new JSONObject();
+                            turn.put("role", msg.isUser() ? "user" : "model");
+                            JSONArray parts = new JSONArray();
+                            JSONObject p = new JSONObject();
+                            p.put("text", msg.getText());
+                            parts.put(p);
+                            turn.put("parts", parts);
+                            conversationHistory.add(turn);
+                        }
+                    }
+                }
+
+                mainHandler.post(() -> callback.onLoaded(list));
+            } catch (Exception e) {
+                Log.e(TAG, "Lỗi nạp lịch sử book chat từ Firestore: ", e);
+                mainHandler.post(() -> callback.onLoaded(new ArrayList<>()));
+            }
+        });
+    }
+
+    /**
+     * Lưu tin nhắn hội thoại của riêng cuốn sách này lên Firestore.
+     */
+    public void saveBookChatMessage(String userId, String bookId, ChatMessage message) {
+        if (userId == null || userId.trim().isEmpty() || bookId == null || bookId.trim().isEmpty() || message == null || message.isLoading()) {
+            return;
+        }
+
+        executorService.execute(() -> {
+            try {
+                String msgId = message.getMessageId();
+                if (msgId == null || msgId.isEmpty()) {
+                    msgId = "msg_" + message.getTimestamp() + "_" + (message.isUser() ? "usr" : "bot");
+                    message.setMessageId(msgId);
+                }
+
+                FirebaseUtils.getFirestore()
+                        .collection(Constants.COLLECTION_USERS)
+                        .document(userId)
+                        .collection("book_chats")
+                        .document(bookId)
+                        .collection("messages")
+                        .document(msgId)
+                        .set(message);
+            } catch (Exception e) {
+                Log.e(TAG, "Lỗi lưu tin nhắn book chat lên Firestore: ", e);
+            }
+        });
+    }
+
+    /**
+     * Xóa lịch sử tư vấn riêng của cuốn sách này.
+     */
+    public void clearBookChatHistory(String userId, String bookId, Runnable onComplete) {
+        conversationHistory.clear();
+        if (userId == null || userId.trim().isEmpty() || bookId == null || bookId.trim().isEmpty()) {
+            if (onComplete != null) mainHandler.post(onComplete);
+            return;
+        }
+
+        executorService.execute(() -> {
+            try {
+                QuerySnapshot snapshot = Tasks.await(
+                        FirebaseUtils.getFirestore()
+                                .collection(Constants.COLLECTION_USERS)
+                                .document(userId)
+                                .collection("book_chats")
+                                .document(bookId)
+                                .collection("messages")
+                                .get(),
+                        10, TimeUnit.SECONDS
+                );
+
+                for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                    doc.getReference().delete();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Lỗi xóa lịch sử book chat: ", e);
+            }
+            if (onComplete != null) mainHandler.post(onComplete);
+        });
+    }
+
+    private JSONObject buildGeminiPayload(String systemInstructionText) throws Exception {
         JSONObject payload = new JSONObject();
 
         // Contents
@@ -383,7 +544,7 @@ public class ChatRepository {
         JSONObject sysInstruction = new JSONObject();
         JSONArray sysParts = new JSONArray();
         JSONObject sysTextPart = new JSONObject();
-        sysTextPart.put("text", SYSTEM_INSTRUCTION);
+        sysTextPart.put("text", systemInstructionText != null ? systemInstructionText : SYSTEM_INSTRUCTION);
         sysParts.put(sysTextPart);
         sysInstruction.put("parts", sysParts);
         payload.put("system_instruction", sysInstruction);

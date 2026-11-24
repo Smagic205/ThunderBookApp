@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.widget.NestedScrollView;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -26,6 +27,7 @@ import com.example.bookapp.Model.Book;
 import com.example.bookapp.R;
 import com.example.bookapp.Utils.FirebaseUtils;
 import com.example.bookapp.ViewModel.BookDetailViewModel;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ public class BookDetailActivity extends AppCompatActivity {
     public static final String EXTRA_BOOK_ID = "extra_book_id";
 
     private CoordinatorLayout clMainContent;
+    private NestedScrollView nsvContent;
     private ProgressBar progressBar;
     
     private ImageView ivCover;
@@ -45,6 +48,7 @@ public class BookDetailActivity extends AppCompatActivity {
     private RecyclerView rvRelatedBooks, rvReviewsPreview;
     private ImageButton ibDecreaseQty, ibIncreaseQty, ibAddToCartIcon;
     private Button btnBuyNow;
+    private ExtendedFloatingActionButton fabChatbot;
 
     private String bookId;
     private Book currentBook;
@@ -148,6 +152,7 @@ public class BookDetailActivity extends AppCompatActivity {
 
     private void bindViews() {
         clMainContent = findViewById(R.id.cl_main_content);
+        nsvContent = findViewById(R.id.nsv_content);
         progressBar = findViewById(R.id.progress_bar);
         
         ivCover = findViewById(R.id.iv_cover);
@@ -172,6 +177,7 @@ public class BookDetailActivity extends AppCompatActivity {
         ibIncreaseQty = findViewById(R.id.ib_increase_qty);
         ibAddToCartIcon = findViewById(R.id.ib_add_to_cart_icon);
         btnBuyNow = findViewById(R.id.btn_buy_now);
+        fabChatbot = findViewById(R.id.fab_chatbot);
 
         rvRelatedBooks.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         relatedBookAdapter = new BookAdapter(new ArrayList<>(), book -> {});
@@ -217,6 +223,13 @@ public class BookDetailActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        if (fabChatbot != null) {
+            fabChatbot.setOnClickListener(v -> {
+                Intent intent = new Intent(this, ChatBotActivity.class);
+                intent.putExtra(ChatBotActivity.EXTRA_BOOK_ID, bookId);
+                startActivity(intent);
+            });
+        }
     }
 
     private void bindBookData(Book book) {
